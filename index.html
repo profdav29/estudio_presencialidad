@@ -1,0 +1,1650 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Estudio de presencialidad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Overpass:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* Paleta tomada de la señalización vial: verde de rotulación, ámbar de precaución, gris de asfalto */
+:root{
+  --paper:#eef1ec;
+  --sheet:#fbfcfa;
+  --ink:#15211c;
+  --ink-2:#56655d;
+  --rule:#cfd7d0;
+  --rule-2:#e2e7e1;
+  --sign:#0d6a4e;
+  --sign-2:#0a5740;
+  --sign-ink:#f4f7f2;
+  --sign-text:#0d6a4e;
+  --signal:#efa81c;
+  --r-sm:6px;
+  --r:10px;
+  --ease:cubic-bezier(.3,.8,.25,1);
+  --font:"Overpass","Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#101613;
+    --sheet:#161e1a;
+    --ink:#e4ebe6;
+    --ink-2:#9aa9a1;
+    --rule:#33413a;
+    --rule-2:#242e29;
+    --sign:#1c7757;
+    --sign-2:#166547;
+    --sign-ink:#eef5f0;
+    --sign-text:#5cc79c;
+    --signal:#f2b43c;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#101613; --sheet:#161e1a; --ink:#e4ebe6; --ink-2:#9aa9a1; --rule:#33413a; --rule-2:#242e29;
+  --sign:#1c7757; --sign-2:#166547; --sign-ink:#eef5f0; --sign-text:#5cc79c; --signal:#f2b43c;
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth; height:100%}
+:root{padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px)}
+body{
+  margin:0; min-height:100%;
+  background:var(--paper); color:var(--ink);
+  font:400 16px/1.55 var(--font);
+  -webkit-font-smoothing:antialiased;
+}
+.hidden{display:none!important}
+.num,td,dd,.m-big,.bar strong{font-variant-numeric:tabular-nums}
+:focus-visible{outline:2px solid var(--signal); outline-offset:2px}
+.print-report{display:none}
+
+/* ---------- Encabezado ---------- */
+.bar-in{
+  max-width:1240px; margin:0 auto; padding:28px 24px 4px;
+  display:flex; justify-content:space-between; align-items:flex-end; gap:20px; flex-wrap:wrap;
+}
+.brand h1{margin:0; font-size:1.3rem; font-weight:800; letter-spacing:-.015em; line-height:1.2}
+.brand p{margin:.2rem 0 0; color:var(--ink-2); font-size:.92rem}
+.actions{display:flex; gap:6px; flex-wrap:wrap}
+
+.btn{
+  font:inherit; font-size:.9rem; font-weight:600; line-height:1.2;
+  padding:.62rem 1rem .5rem; border-radius:var(--r-sm);
+  border:1px solid var(--rule); background:var(--sheet); color:var(--ink);
+  cursor:pointer; transition:background-color .15s, border-color .15s, color .15s;
+}
+.btn:hover{border-color:var(--ink-2)}
+.btn.go{background:var(--sign); border-color:var(--sign); color:var(--sign-ink)}
+.btn.go:hover{background:var(--sign-2); border-color:var(--sign-2)}
+.btn.quiet{background:transparent; border-color:transparent; color:var(--ink-2)}
+.btn.quiet:hover{color:var(--ink); text-decoration:underline; text-underline-offset:3px}
+
+/* ---------- Ruta de pasos ---------- */
+.route{max-width:1240px; margin:0 auto; padding:34px 24px 10px; --at:0}
+.stops-wrap{position:relative}
+.stops{list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); position:relative}
+.road{
+  position:absolute; top:13px; left:10%; right:10%; height:4px;
+  background:repeating-linear-gradient(90deg,var(--rule) 0 16px,transparent 16px 26px);
+}
+.road-done{
+  position:absolute; inset:0 auto 0 0; width:calc(var(--at) * 25%);
+  background:var(--sign); transition:width .7s var(--ease);
+}
+.here{
+  position:absolute; top:-22px; left:calc(var(--at) * 25%);
+  width:0; height:0; transform:translateX(-50%);
+  border-left:7px solid transparent; border-right:7px solid transparent; border-top:9px solid var(--signal);
+  transition:left .7s var(--ease);
+}
+.stops li{position:relative; z-index:1}
+.stepbtn{
+  width:100%; background:none; border:0; padding:0 8px; margin:0;
+  font:inherit; color:var(--ink-2); cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; text-align:center; gap:8px;
+}
+.stepbtn .dot{
+  width:30px; height:30px; border-radius:50%;
+  display:grid; place-items:center;
+  background:var(--paper); border:2px solid var(--rule);
+  font-weight:800; font-size:.8rem; line-height:1; padding-top:2px;
+  transition:background-color .3s, border-color .3s, color .3s, box-shadow .3s;
+}
+.stepbtn .t{font-weight:700; font-size:.9rem; color:var(--ink); line-height:1.25}
+.stepbtn .d{font-size:.76rem; line-height:1.4; max-width:22ch}
+.stepbtn:hover .t{text-decoration:underline; text-underline-offset:3px}
+.stepbtn.done .dot{background:var(--sign); border-color:var(--sign); color:var(--sign-ink)}
+.stepbtn.active .dot{border-color:var(--ink); color:var(--ink); background:var(--sheet); box-shadow:0 0 0 4px color-mix(in srgb,var(--signal) 50%,transparent)}
+.stepbtn.active.done .dot{background:var(--sign); border-color:var(--sign); color:var(--sign-ink)}
+
+/* ---------- Distribución ---------- */
+main{max-width:1240px; margin:0 auto; padding:24px 24px 64px}
+.layout{display:grid; grid-template-columns:minmax(0,1fr) 290px; gap:32px; align-items:start}
+
+.panel{
+  background:var(--sheet); border:1px solid var(--rule-2); border-radius:var(--r);
+  padding:38px 42px 30px;
+}
+.panel.in-fwd{animation:inFwd .34s var(--ease)}
+.panel.in-back{animation:inBack .34s var(--ease)}
+@keyframes inFwd{from{opacity:0; transform:translateX(22px)}}
+@keyframes inBack{from{opacity:0; transform:translateX(-22px)}}
+
+.panel-head{
+  display:flex; justify-content:space-between; align-items:baseline; gap:18px;
+  padding-bottom:22px; border-bottom:1px solid var(--rule-2);
+}
+.panel-head h2{margin:0; font-size:clamp(1.8rem,3.2vw,2.5rem); font-weight:800; letter-spacing:-.028em; line-height:1.05}
+.panel-head p{margin:.7rem 0 0; color:var(--ink-2); max-width:60ch}
+.count{font-size:.85rem; color:var(--ink-2); white-space:nowrap}
+
+/* ---------- Preguntas ---------- */
+.q{
+  display:grid; grid-template-columns:minmax(0,1fr) 310px; gap:28px; align-items:center;
+  padding:18px 0; border-bottom:1px solid var(--rule-2);
+}
+.qt{margin:0; font-size:1rem; line-height:1.45; max-width:58ch}
+.opts{
+  position:relative; display:grid; grid-template-columns:repeat(3,1fr);
+  padding:3px; background:var(--paper); border:1px solid var(--rule); border-radius:8px;
+}
+.opts::before{
+  content:""; position:absolute; top:3px; bottom:3px; left:3px; width:calc((100% - 6px) / 3);
+  background:var(--sign); border-radius:5px; opacity:0;
+  transition:transform .34s var(--ease), opacity .2s;
+}
+.opts:has(input:checked)::before{opacity:1}
+.opts:has(input:nth-of-type(2):checked)::before{transform:translateX(100%)}
+.opts:has(input:nth-of-type(3):checked)::before{transform:translateX(200%)}
+.opts input{position:absolute; opacity:0; width:1px; height:1px; pointer-events:none}
+.opts label{
+  position:relative; z-index:1; text-align:center; cursor:pointer;
+  padding:.55rem .3rem .45rem; border-radius:5px;
+  font-size:.86rem; font-weight:600; color:var(--ink-2); transition:color .2s;
+}
+.opts label:hover{color:var(--ink)}
+.opts input:checked + label{color:var(--sign-ink)}
+.opts input:focus-visible + label{outline:2px solid var(--signal); outline-offset:1px}
+@supports not selector(:has(*)){
+  .opts input:checked + label{background:var(--sign)}
+}
+
+.note{display:flex; gap:14px; margin:26px 0 0; font-size:.93rem; color:var(--ink-2); max-width:66ch}
+.note::before{content:""; flex:0 0 10px; height:10px; margin-top:.45em; background:var(--signal); transform:rotate(45deg)}
+
+/* ---------- Campos ---------- */
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:20px 24px; margin-top:26px}
+.field{display:flex; flex-direction:column; gap:6px}
+.field.full{grid-column:1/-1}
+.field label{font-size:.86rem; font-weight:600}
+input,select{
+  width:100%; font:inherit; font-size:1rem; color:var(--ink);
+  padding:.62rem .8rem .52rem; border:1px solid var(--rule); border-radius:var(--r-sm);
+  background:var(--sheet); font-variant-numeric:tabular-nums;
+  transition:border-color .15s, box-shadow .15s;
+}
+input:hover,select:hover{border-color:var(--ink-2)}
+input:focus,select:focus{outline:none; border-color:var(--sign); box-shadow:0 0 0 3px color-mix(in srgb,var(--sign) 20%,transparent)}
+input[type=number]{-moz-appearance:textfield; appearance:textfield}
+input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
+select{
+  appearance:none; padding-right:2.4rem; cursor:pointer;
+  background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 50%),linear-gradient(135deg,var(--ink-2) 50%,transparent 50%);
+  background-position:calc(100% - 20px) 55%, calc(100% - 15px) 55%;
+  background-size:5px 5px; background-repeat:no-repeat;
+}
+.inwrap{position:relative; display:block}
+.inwrap input{padding-right:var(--pad,.8rem)}
+.inwrap.pre input{padding-left:1.8rem}
+.inwrap .unit{
+  position:absolute; top:50%; right:.8rem; transform:translateY(-45%);
+  font-size:.85rem; color:var(--ink-2); pointer-events:none;
+}
+.inwrap.pre .unit{left:.8rem; right:auto}
+.help{font-size:.78rem; color:var(--ink-2); line-height:1.45}
+
+.sub{margin-top:30px; padding-top:22px; border-top:2px solid var(--ink); animation:open .3s var(--ease)}
+@keyframes open{from{opacity:0; transform:translateY(-6px)}}
+.sub-t{margin:0; font-size:1.05rem; font-weight:800}
+.sub .grid2{margin-top:16px}
+
+.pump{
+  margin-top:24px; background:var(--sign); color:var(--sign-ink);
+  border-radius:var(--r); padding:16px 20px 14px;
+}
+.pump-head{display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-size:.85rem}
+.pump-head span{opacity:.75}
+.pump-row{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:10px}
+.pump-row div{border-top:1px solid color-mix(in srgb,var(--sign-ink) 22%,transparent); padding-top:8px}
+.pump-row small{display:block; font-size:.78rem; opacity:.8}
+.pump-row b{display:block; font-size:1.6rem; font-weight:700; color:var(--signal); letter-spacing:-.01em; font-variant-numeric:tabular-nums}
+.pump p{margin:10px 0 0; font-size:.76rem; opacity:.75}
+
+.nav-bottom{
+  display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
+  margin-top:34px; padding-top:20px; border-top:1px solid var(--rule-2);
+}
+.leg{font-size:.82rem; color:var(--ink-2)}
+.nav-bottom .end{display:flex; gap:8px; flex-wrap:wrap}
+
+/* ---------- Medidor lateral ---------- */
+.meter{
+  position:sticky; top:20px;
+  background:var(--sign); color:var(--sign-ink);
+  border-radius:var(--r); padding:22px 22px 18px;
+}
+.meter h2{margin:0; font-size:.92rem; font-weight:600; opacity:.85}
+.m-big{margin-top:8px; font-size:2.5rem; font-weight:300; letter-spacing:-.025em; line-height:1.05}
+.m-big small{display:block; margin-top:4px; font-size:.8rem; font-weight:400; letter-spacing:0; opacity:.8}
+.meter dl{margin:18px 0 0; display:grid; gap:0}
+.m-row{display:flex; justify-content:space-between; align-items:baseline; gap:10px; padding:9px 0 7px; border-top:1px solid color-mix(in srgb,var(--sign-ink) 20%,transparent); font-size:.88rem}
+.m-row dt{opacity:.85}
+.m-row dd{margin:0; font-weight:700}
+.m-prog{margin-top:18px}
+.m-prog-top{display:flex; justify-content:space-between; font-size:.82rem}
+.m-prog-top span{opacity:.85}
+.track{height:4px; margin-top:8px; background:color-mix(in srgb,var(--sign-ink) 22%,transparent); border-radius:2px; overflow:hidden}
+.fill{height:100%; width:0; background:var(--signal); transition:width .6s var(--ease)}
+.privacy{margin:16px 0 0; font-size:.75rem; line-height:1.45; opacity:.75}
+
+/* ---------- Resultados ---------- */
+.verdict{margin:28px 0 0; font-size:clamp(1.2rem,2.2vw,1.55rem); line-height:1.45; max-width:42ch}
+.verdict b{font-weight:800; white-space:nowrap}
+.verdict .soft{color:var(--ink-2)}
+
+.diag{display:grid; grid-template-columns:1fr 1fr; gap:36px; margin-top:38px}
+.dg h3{margin:0; font-size:.9rem; font-weight:600; color:var(--ink-2)}
+.dg-label{margin:.25rem 0 0; font-size:1.2rem; font-weight:800; line-height:1.3}
+.dg p{margin:.8rem 0 0; font-size:.93rem; color:var(--ink-2); max-width:52ch}
+
+.gauge{position:relative; margin-top:16px}
+.zones{display:grid; grid-template-columns:30fr 30fr 40fr; gap:3px; height:10px}
+.zones span{border-radius:2px}
+.zones span:nth-child(1){background:color-mix(in srgb,var(--sign) 22%,var(--sheet))}
+.zones span:nth-child(2){background:color-mix(in srgb,var(--sign) 55%,var(--sheet))}
+.zones span:nth-child(3){background:var(--sign)}
+.needle{
+  position:absolute; top:-6px; height:22px; width:3px; margin-left:-1.5px; left:0;
+  background:var(--ink); border-radius:2px; opacity:0;
+  transition:left .8s var(--ease), opacity .3s;
+}
+.needle.on{opacity:1}
+.zone-names{display:grid; grid-template-columns:30fr 30fr 40fr; gap:3px; margin-top:6px; font-size:.74rem; color:var(--ink-2)}
+
+.levels{display:grid; grid-template-columns:repeat(3,1fr); gap:3px; margin-top:16px}
+.levels span{
+  text-align:center; font-size:.78rem; font-weight:600; color:var(--ink-2);
+  padding:.4rem .2rem .3rem; border-radius:3px; background:var(--rule-2);
+  transition:background-color .3s, color .3s;
+}
+.levels span.on{background:var(--ink); color:var(--sheet)}
+
+.block{margin-top:44px}
+.block > h3{margin:0 0 14px; padding-bottom:10px; border-bottom:1px solid var(--rule-2); font-size:1.1rem; font-weight:800; letter-spacing:-.01em}
+
+.bar{display:grid; grid-template-columns:128px minmax(0,1fr) 108px; gap:14px; align-items:center; font-size:.88rem; padding:5px 0}
+.bartrack{height:12px; background:var(--rule-2); border-radius:2px; overflow:hidden}
+.barfill{height:100%; width:0; background:var(--sign); transition:width .8s var(--ease)}
+.bar strong{text-align:right; font-weight:700}
+
+.figs{display:grid; grid-template-columns:1fr 1fr; gap:28px}
+.fig b{display:block; font-size:2.1rem; font-weight:300; letter-spacing:-.025em; line-height:1.1; font-variant-numeric:tabular-nums}
+.fig span{display:block; margin-top:6px; font-size:.86rem; color:var(--ink-2); max-width:34ch}
+
+.day{display:flex; height:30px; border-radius:4px; overflow:hidden; background:var(--rule-2)}
+.day i{display:block; height:100%; width:0; transition:width .8s var(--ease)}
+.day .s-go,.day .s-back{background:var(--signal)}
+.day .s-work{background:var(--sign)}
+.day .s-rest{background:var(--rule)}
+.ticks{position:relative; height:18px; margin-top:6px; font-size:.72rem; color:var(--ink-2)}
+.ticks span{position:absolute; top:0; transform:translateX(-50%); white-space:nowrap}
+.ticks span:first-child{transform:none}
+.ticks span:last-child{transform:translateX(-100%)}
+.legend{display:flex; flex-wrap:wrap; gap:8px 22px; margin-top:12px; font-size:.86rem}
+.legend span{display:inline-flex; align-items:center; gap:8px}
+.legend i{width:12px; height:12px; border-radius:2px; display:inline-block}
+
+.prose{margin:0; max-width:66ch; font-size:.98rem}
+.prose strong{font-weight:700}
+
+.table-wrap{overflow-x:auto}
+table{width:100%; border-collapse:collapse}
+th,td{padding:.6rem .5rem .5rem; border-bottom:1px solid var(--rule-2); text-align:right; font-size:.9rem}
+th:first-child,td:first-child{text-align:left; padding-left:0}
+th:last-child,td:last-child{padding-right:0}
+th{font-size:.8rem; font-weight:600; color:var(--ink-2)}
+tr.total td{font-weight:800; border-top:2px solid var(--ink); border-bottom:0}
+.empty{font-size:.86rem; color:var(--ink-2)}
+
+.toast{
+  position:fixed; left:50%; bottom:calc(28px + env(safe-area-inset-bottom,0px)); z-index:100;
+  transform:translate(-50%,16px); opacity:0; pointer-events:none;
+  background:var(--ink); color:var(--sheet); padding:.7rem 1.1rem .6rem; border-radius:var(--r-sm);
+  font-size:.9rem; font-weight:600; transition:opacity .2s, transform .25s var(--ease);
+}
+.toast.show{opacity:1; transform:translate(-50%,0)}
+
+/* ---------- Responsivo ---------- */
+@media (max-width:1020px){
+  .stepbtn .d{display:none}
+  .q{grid-template-columns:1fr; gap:10px}
+}
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr}
+  body{padding-bottom:84px}
+  .meter{
+    position:fixed; top:auto; left:0; right:0; bottom:0; z-index:40; border-radius:0;
+    padding:12px 18px calc(10px + env(safe-area-inset-bottom,0px));
+    display:grid; grid-template-columns:1fr auto; align-items:center; gap:12px;
+  }
+  .meter h2,.privacy,.m-prog-top{display:none}
+  .m-big{margin:0; font-size:1.5rem}
+  .m-big small{display:inline; margin-left:6px}
+  .meter dl{margin:0}
+  .m-row{border:0; padding:0; gap:6px}
+  .m-row:not(.keep){display:none}
+  .m-prog{position:absolute; top:0; left:0; right:0; margin:0}
+  .m-prog .track{margin:0; border-radius:0; height:3px}
+  .diag,.figs{grid-template-columns:1fr}
+}
+@media (max-width:640px){
+  .bar-in,.route,main{padding-left:14px; padding-right:14px}
+  .panel{padding:26px 18px 22px}
+  .panel-head{flex-direction:column; gap:6px}
+  .grid2{grid-template-columns:1fr}
+  .stepbtn .t{font-size:.72rem}
+  .stepbtn:not(.active) .t{display:none}
+  .stepbtn .t{white-space:nowrap}
+  .stops li:first-child .t{align-self:flex-start}
+  .stops li:last-child .t{align-self:flex-end}
+  .actions .btn{font-size:.82rem; padding:.5rem .75rem .42rem}
+  .pump-row b{font-size:1.25rem}
+  .bar{grid-template-columns:96px minmax(0,1fr) 88px; gap:10px; font-size:.8rem}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important; transition:none!important; scroll-behavior:auto!important}
+}
+
+
+/* ---------- Rubros opcionales ---------- */
+.blist{margin-top:6px}
+.sub .blist{margin-top:18px; border-top:1px solid var(--rule-2)}
+.brow{padding:18px 0; border-bottom:1px solid var(--rule-2)}
+.brow-head{display:grid; grid-template-columns:minmax(0,1fr) 230px; gap:24px; align-items:center}
+.brow .qt{font-weight:700}
+.brow .help{margin-top:2px; font-size:.84rem}
+.bfields{animation:open .3s var(--ease)}
+.bfields .grid2{margin-top:14px}
+.opts.two{grid-template-columns:repeat(2,1fr)}
+.opts.two::before{width:calc((100% - 6px) / 2)}
+.opts.two:has(input[value="no"]:checked)::before{background:var(--ink-2)}
+.brow:has(input[value="no"]:checked) .qt{color:var(--ink-2)}
+@media (max-width:1020px){ .brow-head{grid-template-columns:1fr; gap:10px} }
+
+/* ---------- Impresión ---------- */
+@page{
+  size:letter;
+  margin:16mm 16mm 18mm;
+  @bottom-left{content:"Estudio de presencialidad"; font-family:"Overpass",sans-serif; font-size:7.5pt; color:#6b7770}
+  @bottom-right{content:"Página " counter(page) " de " counter(pages); font-family:"Overpass",sans-serif; font-size:7.5pt; color:#6b7770}
+}
+@media print{
+  :root,:root:not([data-theme="light"]){
+    --paper:#fff; --sheet:#fff; --ink:#15211c; --ink-2:#56645c; --rule:#cfd7d0; --rule-2:#e3e8e2;
+    --sign:#0d6a4e; --sign-2:#0a5740; --sign-ink:#fff; --sign-text:#0d6a4e; --signal:#e39c0d;
+  }
+  *{-webkit-print-color-adjust:exact; print-color-adjust:exact; animation:none!important; transition:none!important}
+  :root{padding:0}
+  body{background:#fff; padding:0!important; font-size:10pt}
+  body > header,.screen-only,.toast{display:none!important}
+  main{max-width:none; padding:0}
+  .print-report{display:block!important}
+
+  .pr-page{break-after:page}
+  .pr-page:last-child{break-after:auto}
+  .pr-sec{margin-top:15pt; break-inside:avoid}
+  .pr-sec h2{
+    margin:0 0 7pt; padding-bottom:4pt; border-bottom:.75pt solid var(--rule);
+    font-size:10.5pt; font-weight:800; color:var(--sign); letter-spacing:-.005em;
+  }
+  .pr-sec p{margin:0 0 5pt; font-size:9.5pt; line-height:1.55; max-width:none}
+  .pr-sec strong{font-weight:700}
+
+  .pr-head{border-top:5pt solid var(--sign); padding-top:11pt; padding-bottom:9pt; border-bottom:.75pt solid var(--rule)}
+  .pr-title{margin:0; font-size:22pt; font-weight:800; letter-spacing:-.025em; line-height:1}
+  .pr-sub{margin:4pt 0 0; font-size:9pt; color:var(--ink-2)}
+  .pr-meta{margin:10pt 0 0; display:grid; grid-template-rows:auto auto; grid-auto-flow:column; justify-content:start; column-gap:26pt; font-size:8pt}
+  .pr-meta dt{color:var(--ink-2)}
+  .pr-meta dd{margin:0; font-weight:700}
+
+  .pr-verdict{margin:13pt 0 12pt; font-size:12.5pt; line-height:1.42; max-width:38em}
+  .pr-verdict b{font-weight:800; white-space:nowrap}
+  .pr-verdict .soft{color:var(--ink-2)}
+
+  .pr-kpis{display:grid; grid-template-columns:repeat(4,1fr); border-top:1.5pt solid var(--ink); border-bottom:.75pt solid var(--rule)}
+  .pr-kpis div{padding:7pt 8pt 8pt 0}
+  .pr-kpis div + div{padding-left:9pt; border-left:.75pt solid var(--rule)}
+  .pr-kpis span{display:block; font-size:7.5pt; color:var(--ink-2)}
+  .pr-kpis b{display:block; margin-top:2pt; font-size:15pt; font-weight:800; letter-spacing:-.01em; font-variant-numeric:tabular-nums}
+
+  .pr-two{display:grid; grid-template-columns:1fr 1fr; gap:20pt}
+  .pr-label{margin:0 0 2pt!important; font-size:11pt!important; font-weight:800; line-height:1.3!important}
+  .print-report .gauge{margin-top:8pt}
+  .print-report .zones{height:7pt}
+  .print-report .needle{top:-4pt; height:15pt}
+  .print-report .zone-names{font-size:7pt}
+  .print-report .levels{margin-top:8pt}
+  .print-report .levels span{font-size:7pt; padding:3pt 2pt 2pt}
+  .print-report .gauge + p,.print-report .levels + p{margin-top:8pt!important; color:var(--ink-2)}
+
+  .pr-table{width:100%; border-collapse:collapse}
+  .pr-table th,.pr-table td{font-size:8.8pt; padding:3.5pt 4pt 2.5pt; border-bottom:.5pt solid var(--rule-2); text-align:right}
+  .pr-table th:first-child,.pr-table td:first-child{text-align:left; padding-left:0}
+  .pr-table th:last-child,.pr-table td:last-child{padding-right:0}
+  .pr-table th{font-size:7.5pt; font-weight:600; color:var(--ink-2); border-bottom:.75pt solid var(--ink)}
+  .pr-table tr.total td{font-weight:800; border-top:1.5pt solid var(--ink); border-bottom:0}
+  .pr-table td.na{color:var(--ink-2)}
+  .pr-params{display:grid; grid-template-columns:1fr 1fr; column-gap:20pt}
+  .pr-params div{display:flex; justify-content:space-between; gap:10pt; padding:4pt 0 3pt; border-bottom:.5pt solid var(--rule-2); font-size:8.8pt}
+  .pr-params span{color:var(--ink-2)}
+  .pr-params b{font-weight:700; text-align:right}
+
+  .print-bars .bar{grid-template-columns:120pt 1fr 80pt; font-size:9pt; padding:2.5pt 0}
+  .print-bars .bartrack{height:8pt}
+  .print-report .figs{grid-template-columns:1fr 1fr; gap:20pt}
+  .print-report .fig b{font-size:20pt}
+  .print-report .fig span{font-size:8.5pt}
+  .print-report .day{height:18pt}
+  .print-report .ticks{font-size:7pt}
+  .print-report .legend{font-size:8.5pt; margin-top:6pt}
+  .print-report .empty{font-size:9pt}
+}
+</style>
+</head>
+<body>
+
+<header class="screen-only">
+  <div class="bar-in">
+    <div class="brand">
+      <h1>Estudio de presencialidad</h1>
+      <p>Si la tarea necesita la oficina, y cuánto cuesta llegar a ella.</p>
+    </div>
+    <div class="actions">
+      <button class="btn quiet" onclick="resetAll()">Restablecer</button>
+      <button class="btn" onclick="goToResults()">Ver resultados</button>
+      <button class="btn go" onclick="preparePrint()">Imprimir reporte</button>
+    </div>
+  </div>
+
+  <nav class="route" id="route" aria-label="Pasos del estudio">
+    <div class="stops-wrap">
+    <div class="road" aria-hidden="true"><div class="road-done"></div><div class="here"></div></div>
+    <ol class="stops">
+      <li><button class="stepbtn active" id="nav0" onclick="goStep(0)" aria-current="step">
+        <span class="dot">1</span><span class="t">Necesidad funcional</span><span class="d">Valida si la actividad requiere presencia física.</span>
+      </button></li>
+      <li><button class="stepbtn" id="nav1" onclick="goStep(1)">
+        <span class="dot">2</span><span class="t">Contexto institucional</span><span class="d">Separa política general de necesidad operativa.</span>
+      </button></li>
+      <li><button class="stepbtn" id="nav2" onclick="goStep(2)">
+        <span class="dot">3</span><span class="t">Movilidad</span><span class="d">Tipo de transporte, distancia y tiempo.</span>
+      </button></li>
+      <li><button class="stepbtn" id="nav3" onclick="goStep(3)">
+        <span class="dot">4</span><span class="t">Presupuesto</span><span class="d">Alimentación, vestimenta y otros rubros.</span>
+      </button></li>
+      <li><button class="stepbtn" id="nav4" onclick="goStep(4)">
+        <span class="dot">5</span><span class="t">Resultados</span><span class="d">Gráficos, tablas y reporte final.</span>
+      </button></li>
+    </ol>
+    </div>
+  </nav>
+</header>
+
+<main>
+  <div class="layout screen-only">
+    <section class="content">
+
+      <!-- Paso 1 -->
+      <section class="panel" id="step0">
+        <div class="panel-head">
+          <div>
+            <h2>Necesidad funcional</h2>
+            <p>Determina si la tarea necesita presencia física o si se realiza prácticamente igual desde casa y desde la oficina.</p>
+          </div>
+          <span class="count" id="count0"></span>
+        </div>
+        <div id="functionalQuestions"></div>
+        <p class="note">Si en ambos lugares usas la misma computadora, la misma VPN, correo, Teams, aplicaciones y sistemas, la equivalencia entre casa y oficina es mayor.</p>
+        <div class="nav-bottom">
+          <span class="leg">Tramo 1 de 5</span>
+          <button class="btn go" onclick="nextStep()">Siguiente: contexto</button>
+        </div>
+      </section>
+
+      <!-- Paso 2 -->
+      <section class="panel hidden" id="step1">
+        <div class="panel-head">
+          <div>
+            <h2>Contexto institucional</h2>
+            <p>Identifica si la presencialidad responde a una política general o a una necesidad operativa definida.</p>
+          </div>
+          <span class="count" id="count1"></span>
+        </div>
+        <div id="policyQuestions"></div>
+        <div class="nav-bottom">
+          <button class="btn quiet" onclick="prevStep()">Anterior</button>
+          <div class="end">
+            <span class="leg" style="align-self:center">Tramo 2 de 5</span>
+            <button class="btn go" onclick="nextStep()">Siguiente: movilidad</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Paso 3 -->
+      <section class="panel hidden" id="step2">
+        <div class="panel-head">
+          <div>
+            <h2>Movilidad</h2>
+            <p>Cómo llegas: transporte, distancia de ida y de vuelta, tiempo y costos asociados.</p>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="field full">
+            <label>Modo principal de traslado</label>
+            <select id="transportMode">
+              <option value="">Seleccionar…</option>
+              <option value="ownCar">Vehículo propio</option>
+              <option value="carpoolDriver">Vehículo propio con carpooling (conductor)</option>
+              <option value="carpoolPassenger">Carpooling (pasajero)</option>
+              <option value="motorcycle">Motocicleta</option>
+              <option value="bus">Autobús</option>
+              <option value="train">Tren</option>
+              <option value="taxi">Taxi / plataforma</option>
+              <option value="employer">Transporte de empresa</option>
+              <option value="bicycle">Bicicleta</option>
+              <option value="walk">Caminando</option>
+              <option value="mixed">Combinado / multimodal</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Distancia de ida, casa → trabajo (km)</label>
+            <input id="kmGo" type="number" min="0" step=".1" inputmode="decimal">
+            <div class="help">Solo un trayecto.</div>
+          </div>
+          <div class="field">
+            <label>Distancia de regreso, trabajo → casa (km)</label>
+            <input id="kmBack" type="number" min="0" step=".1" inputmode="decimal">
+            <div class="help">Puede ser distinta a la ida.</div>
+          </div>
+
+          <div class="field">
+            <label>Tiempo de ida (h)</label>
+            <input id="hoursGo" type="number" min="0" step=".1" inputmode="decimal">
+          </div>
+          <div class="field">
+            <label>Tiempo de regreso (h)</label>
+            <input id="hoursBack" type="number" min="0" step=".1" inputmode="decimal">
+          </div>
+
+          <div class="field">
+            <label>Días presenciales por semana</label>
+            <input id="daysWeek" type="number" min="0" max="7" step="1" inputmode="numeric">
+          </div>
+          <div class="field">
+            <label>Semanas laborales al año</label>
+            <input id="weeksYear" type="number" min="1" max="53" value="52" inputmode="numeric">
+          </div>
+        </div>
+
+        <div id="vehicleSection" class="sub hidden">
+          <h3 class="sub-t">Vehículo y energía</h3>
+          <div class="grid2">
+            <div class="field full">
+              <label>Tipo de vehículo / energía</label>
+              <select id="energyType">
+                <option value="">Seleccionar…</option>
+                <option value="regular">Gasolina Regular</option>
+                <option value="super">Gasolina Súper</option>
+                <option value="diesel">Diésel</option>
+                <option value="hybrid">Híbrido no enchufable</option>
+                <option value="phev">Híbrido enchufable</option>
+                <option value="electric">Eléctrico</option>
+                <option value="lpg">Gas LP / GLP</option>
+                <option value="other">Otro</option>
+              </select>
+            </div>
+
+            <div class="field" id="liquidEffField">
+              <label>Rendimiento del vehículo (km/L)</label>
+              <input id="kmPerLiter" type="number" min="0" step=".1" inputmode="decimal">
+              <div class="help">Ejemplo: 650 km ÷ 80 litros = 8,13 km/L.</div>
+            </div>
+            <div class="field" id="fuelPriceField">
+              <label>Precio del combustible (₡/L)</label>
+              <input id="fuelPrice" type="number" min="0" step="1" inputmode="numeric">
+            </div>
+
+            <div class="field hidden" id="electricEffField">
+              <label>Consumo eléctrico (kWh/100 km)</label>
+              <input id="kwh100" type="number" min="0" step=".1" inputmode="decimal">
+            </div>
+            <div class="field hidden" id="electricPriceField">
+              <label>Precio de la electricidad (₡/kWh)</label>
+              <input id="kwhPrice" type="number" min="0" step=".01" inputmode="decimal">
+            </div>
+
+            <div class="field">
+              <label>Mantenimiento cada (km)</label>
+              <input id="maintKm" type="number" min="1" value="5000" inputmode="numeric">
+            </div>
+            <div class="field">
+              <label>Costo de ese mantenimiento (₡)</label>
+              <input id="maintCost" type="number" min="0" inputmode="numeric">
+            </div>
+            <div class="field">
+              <label>Juego de llantas (₡)</label>
+              <input id="tiresCost" type="number" min="0" inputmode="numeric">
+            </div>
+            <div class="field">
+              <label>Vida útil de las llantas (km)</label>
+              <input id="tiresKm" type="number" min="1" value="40000" inputmode="numeric">
+            </div>
+          </div>
+
+<div class="blist">
+        <div class="brow" id="br_park">
+          <div class="brow-head">
+            <div><p class="qt" id="bq_park">Parqueo</p><p class="help">¿Pagas por estacionar los días que vas a la oficina?</p></div>
+            <div class="opts two" role="radiogroup" aria-labelledby="bq_park">
+              <input type="radio" name="bud_park" id="bud_park_y" value="yes"><label for="bud_park_y">Sí aplica</label>
+              <input type="radio" name="bud_park" id="bud_park_n" value="no"><label for="bud_park_n">No aplica</label>
+            </div>
+          </div>
+          <div class="bfields hidden" id="bf_park"><div class="grid2">
+            <div class="field"><label>Monto por día (₡)</label><input id="parkingDay" type="number" min="0" inputmode="numeric"></div></div></div>
+        </div>
+        <div class="brow" id="br_toll">
+          <div class="brow-head">
+            <div><p class="qt" id="bq_toll">Peajes</p><p class="help">¿Tu ruta de ida o de regreso pasa por peajes?</p></div>
+            <div class="opts two" role="radiogroup" aria-labelledby="bq_toll">
+              <input type="radio" name="bud_toll" id="bud_toll_y" value="yes"><label for="bud_toll_y">Sí aplica</label>
+              <input type="radio" name="bud_toll" id="bud_toll_n" value="no"><label for="bud_toll_n">No aplica</label>
+            </div>
+          </div>
+          <div class="bfields hidden" id="bf_toll"><div class="grid2">
+            <div class="field"><label>Ida y vuelta, por día (₡)</label><input id="tollsDay" type="number" min="0" inputmode="numeric"></div></div></div>
+        </div>
+          </div>
+          <div class="pump">
+            <div class="pump-head"><strong>Precios de referencia en Costa Rica</strong><span>23 de setiembre de 2026</span></div>
+            <div class="pump-row">
+              <div><small>Regular</small><b>₡704</b></div>
+              <div><small>Súper</small><b>₡723</b></div>
+              <div><small>Diésel</small><b>₡686</b></div>
+            </div>
+            <p>Precio por litro. Los valores del formulario se pueden editar según el ajuste oficial vigente.</p>
+          </div>
+        </div>
+
+        <div id="carpoolDriverSection" class="sub hidden">
+          <h3 class="sub-t">Carpooling</h3>
+          <div class="grid2">
+            <div class="field">
+              <label>Personas en el vehículo, contándote</label>
+              <input id="carpoolPeople" type="number" min="1" value="2" inputmode="numeric">
+            </div>
+            <div class="field">
+              <label>¿Se reparten los costos?</label>
+              <select id="splitCosts">
+                <option value="yes">Sí, en partes iguales</option>
+                <option value="no">No, el conductor asume todo</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div id="passengerSection" class="sub hidden">
+          <h3 class="sub-t">Aporte como pasajero</h3>
+          <div class="grid2">
+            <div class="field">
+              <label>Aporte diario al conductor (₡)</label>
+              <input id="passengerDaily" type="number" min="0" inputmode="numeric">
+            </div>
+          </div>
+        </div>
+
+        <div id="publicSection" class="sub hidden">
+          <h3 class="sub-t">Transporte público</h3>
+          <div class="grid2">
+            <div class="field">
+              <label>Tarifa total de ida (₡)</label>
+              <input id="fareGo" type="number" min="0" inputmode="numeric">
+            </div>
+            <div class="field">
+              <label>Tarifa total de regreso (₡)</label>
+              <input id="fareBack" type="number" min="0" inputmode="numeric">
+            </div>
+            <div class="field full">
+              <label>Conexiones o transporte adicional por día (₡)</label>
+              <input id="connectionsDay" type="number" min="0" inputmode="numeric">
+            </div>
+          </div>
+        </div>
+
+        <div id="taxiSection" class="sub hidden">
+          <h3 class="sub-t">Taxi / plataforma</h3>
+          <div class="grid2">
+            <div class="field">
+              <label>Costo diario de ida y regreso (₡)</label>
+              <input id="taxiDay" type="number" min="0" inputmode="numeric">
+            </div>
+          </div>
+        </div>
+
+        <div id="activeSection" class="sub hidden">
+          <h3 class="sub-t">Bicicleta / caminata</h3>
+          <div class="grid2">
+            <div class="field">
+              <label>Mantenimiento y equipo mensual (₡)</label>
+              <input id="activeMonth" type="number" min="0" inputmode="numeric">
+            </div>
+            <div class="field">
+              <label>Inversión inicial (₡)</label>
+              <input id="activeInitial" type="number" min="0" inputmode="numeric">
+            </div>
+          </div>
+        </div>
+
+        <div id="mixedSection" class="sub hidden">
+          <h3 class="sub-t">Escenario combinado</h3>
+          <div class="grid2">
+            <div class="field">
+              <label>Costo total de transporte por día (₡)</label>
+              <input id="mixedDay" type="number" min="0" inputmode="numeric">
+            </div>
+          </div>
+        </div>
+
+        <div class="nav-bottom">
+          <button class="btn quiet" onclick="prevStep()">Anterior</button>
+          <div class="end">
+            <span class="leg" style="align-self:center">Tramo 3 de 5</span>
+            <button class="btn go" onclick="nextStep()">Siguiente: presupuesto</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Paso 4 -->
+      <section class="panel hidden" id="step3">
+        <div class="panel-head">
+          <div>
+            <h2>Presupuesto</h2>
+            <p>Marca solo los gastos que aparecen por ir a la oficina. Los que no aplican no suman al cálculo ni salen en el reporte.</p>
+          </div>
+          <span class="count" id="count3"></span>
+        </div>
+        <div class="blist">
+        <div class="brow" id="br_food">
+          <div class="brow-head">
+            <div><p class="qt" id="bq_food">Alimentación fuera de casa</p><p class="help">Almuerzo u otras comidas que en casa no comprarías.</p></div>
+            <div class="opts two" role="radiogroup" aria-labelledby="bq_food">
+              <input type="radio" name="bud_food" id="bud_food_y" value="yes"><label for="bud_food_y">Sí aplica</label>
+              <input type="radio" name="bud_food" id="bud_food_n" value="no"><label for="bud_food_n">No aplica</label>
+            </div>
+          </div>
+          <div class="bfields hidden" id="bf_food"><div class="grid2">
+            <div class="field"><label>Monto por día presencial (₡)</label><input id="foodDay" type="number" min="0" inputmode="numeric"></div></div></div>
+        </div>
+        <div class="brow" id="br_snacks">
+          <div class="brow-head">
+            <div><p class="qt" id="bq_snacks">Café y refrigerios</p><p class="help">Lo que consumes en la oficina o en el camino.</p></div>
+            <div class="opts two" role="radiogroup" aria-labelledby="bq_snacks">
+              <input type="radio" name="bud_snacks" id="bud_snacks_y" value="yes"><label for="bud_snacks_y">Sí aplica</label>
+              <input type="radio" name="bud_snacks" id="bud_snacks_n" value="no"><label for="bud_snacks_n">No aplica</label>
+            </div>
+          </div>
+          <div class="bfields hidden" id="bf_snacks"><div class="grid2">
+            <div class="field"><label>Monto por día presencial (₡)</label><input id="snacksDay" type="number" min="0" inputmode="numeric"></div></div></div>
+        </div>
+        <div class="brow" id="br_clothing">
+          <div class="brow-head">
+            <div><p class="qt" id="bq_clothing">Vestimenta adicional</p><p class="help">Ropa o calzado para cumplir lineamientos de imagen.</p></div>
+            <div class="opts two" role="radiogroup" aria-labelledby="bq_clothing">
+              <input type="radio" name="bud_clothing" id="bud_clothing_y" value="yes"><label for="bud_clothing_y">Sí aplica</label>
+              <input type="radio" name="bud_clothing" id="bud_clothing_n" value="no"><label for="bud_clothing_n">No aplica</label>
+            </div>
+          </div>
+          <div class="bfields hidden" id="bf_clothing"><div class="grid2">
+            <div class="field"><label>Inversión inicial (₡)</label><input id="clothingInitial" type="number" min="0" inputmode="numeric"></div>
+            <div class="field"><label>Repartir el gasto en (meses)</label><input id="clothingMonths" type="number" min="1" inputmode="numeric" value="12"></div></div></div>
+        </div>
+        <div class="brow" id="br_laundry">
+          <div class="brow-head">
+            <div><p class="qt" id="bq_laundry">Lavandería y planchado</p><p class="help">Servicio o gasto extra por la ropa de oficina.</p></div>
+            <div class="opts two" role="radiogroup" aria-labelledby="bq_laundry">
+              <input type="radio" name="bud_laundry" id="bud_laundry_y" value="yes"><label for="bud_laundry_y">Sí aplica</label>
+              <input type="radio" name="bud_laundry" id="bud_laundry_n" value="no"><label for="bud_laundry_n">No aplica</label>
+            </div>
+          </div>
+          <div class="bfields hidden" id="bf_laundry"><div class="grid2">
+            <div class="field"><label>Monto mensual (₡)</label><input id="laundryMonth" type="number" min="0" inputmode="numeric"></div></div></div>
+        </div>
+        <div class="brow" id="br_care">
+          <div class="brow-head">
+            <div><p class="qt" id="bq_care">Cuido o logística familiar</p><p class="help">Cuido de hijos, personas adultas mayores o mascotas que surge por asistir.</p></div>
+            <div class="opts two" role="radiogroup" aria-labelledby="bq_care">
+              <input type="radio" name="bud_care" id="bud_care_y" value="yes"><label for="bud_care_y">Sí aplica</label>
+              <input type="radio" name="bud_care" id="bud_care_n" value="no"><label for="bud_care_n">No aplica</label>
+            </div>
+          </div>
+          <div class="bfields hidden" id="bf_care"><div class="grid2">
+            <div class="field"><label>Monto mensual (₡)</label><input id="careMonth" type="number" min="0" inputmode="numeric"></div></div></div>
+        </div>
+        <div class="brow" id="br_other">
+          <div class="brow-head">
+            <div><p class="qt" id="bq_other">Otros gastos</p><p class="help">Cualquier gasto diario que no entre en los anteriores.</p></div>
+            <div class="opts two" role="radiogroup" aria-labelledby="bq_other">
+              <input type="radio" name="bud_other" id="bud_other_y" value="yes"><label for="bud_other_y">Sí aplica</label>
+              <input type="radio" name="bud_other" id="bud_other_n" value="no"><label for="bud_other_n">No aplica</label>
+            </div>
+          </div>
+          <div class="bfields hidden" id="bf_other"><div class="grid2">
+            <div class="field"><label>Monto por día presencial (₡)</label><input id="otherDay" type="number" min="0" inputmode="numeric"></div></div></div>
+        </div>
+        </div>
+        <div class="nav-bottom">
+          <button class="btn quiet" onclick="prevStep()">Anterior</button>
+          <div class="end">
+            <span class="leg" style="align-self:center">Tramo 4 de 5</span>
+            <button class="btn go" onclick="nextStep()">Ver resultados</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Paso 5 -->
+      <section class="panel hidden" id="step4">
+        <div class="panel-head">
+          <div>
+            <h2>Resultados</h2>
+            <p>Indicadores, gráficos, interpretación y detalle del presupuesto.</p>
+          </div>
+        </div>
+
+        <p class="verdict">
+          Con este esquema, ir a la oficina cuesta <b id="kpiCostMonth">₡0</b> al mes
+          <span class="soft">(<span id="kpiCostYear">₡0</span> al año)</span>,
+          suma <b id="kpiKmYear">0 km</b> recorridos y consume <b id="kpiHoursYear">0 h</b> de traslado,
+          <span class="soft">lo mismo que <span id="kpiDays24">0 días de 24 h</span>.</span>
+        </p>
+
+        <div class="diag">
+          <div class="dg">
+            <h3>Diagnóstico funcional</h3>
+            <p class="dg-label" id="funcBadge">Pendiente</p>
+            <div class="gauge" aria-hidden="true">
+              <div class="zones"><span></span><span></span><span></span></div>
+              <div class="needle" id="funcNeedle"></div>
+              <div class="zone-names"><span>Baja</span><span>Moderada</span><span>Alta</span></div>
+            </div>
+            <p id="funcText"></p>
+          </div>
+          <div class="dg">
+            <h3>Contexto institucional</h3>
+            <p class="dg-label" id="instBadge">Pendiente</p>
+            <div class="levels" id="instLevels" aria-hidden="true">
+              <span>Diferenciado</span><span>Mixto</span><span>General</span>
+            </div>
+            <p id="instText"></p>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>Composición del presupuesto mensual</h3>
+          <div id="budgetChart"></div>
+        </div>
+
+        <div class="block">
+          <h3>Exposición anual de movilidad</h3>
+          <div id="mobilityChart"></div>
+        </div>
+
+        <div class="block">
+          <h3>Un día presencial en 24 horas</h3>
+          <div id="dayChart"></div>
+        </div>
+
+        <div class="block">
+          <h3>Seguridad vial y contexto internacional</h3>
+          <p class="prose" id="roadText"></p>
+        </div>
+
+        <div class="block">
+          <h3>Lectura integral</h3>
+          <p class="prose" id="analysisText"></p>
+        </div>
+
+        <div class="block">
+          <h3>Detalle mensual y anual</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Concepto</th><th>Mensual</th><th>Anual</th></tr></thead>
+              <tbody id="detailTable"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="nav-bottom">
+          <button class="btn quiet" onclick="prevStep()">Anterior</button>
+          <div class="end">
+            <button class="btn" onclick="copySummary()">Copiar resumen</button>
+            <button class="btn go" onclick="preparePrint()">Imprimir reporte</button>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <aside class="meter" aria-label="Costo acumulado">
+      <h2>Lo que cuesta ir</h2>
+      <div class="m-big"><span id="mMonth">₡0</span><small>al mes</small></div>
+      <dl>
+        <div class="m-row"><dt>Al año</dt><dd id="mYear">₡0</dd></div>
+        <div class="m-row"><dt>Kilómetros al año</dt><dd id="mKm">0</dd></div>
+        <div class="m-row keep"><dt>Horas al año</dt><dd id="mHours">0 h</dd></div>
+      </dl>
+      <div class="m-prog">
+        <div class="m-prog-top"><span>Avance del estudio</span><strong id="progressValue">0%</strong></div>
+        <div class="track"><div class="fill" id="progressFill"></div></div>
+      </div>
+      <p class="privacy">Todo se calcula en tu navegador. Las respuestas no se guardan ni se envían.</p>
+    </aside>
+  </div>
+
+  <!-- Reporte imprimible -->
+  <section class="print-report" id="printReport" aria-hidden="true">
+    <article class="pr-page">
+      <header class="pr-head">
+        <div>
+          <h1 class="pr-title">Estudio de presencialidad</h1>
+          <p class="pr-sub">Necesidad funcional, contexto institucional y costo de asistir a la oficina</p>
+        </div>
+        <dl class="pr-meta" id="prMeta"></dl>
+      </header>
+
+      <p class="pr-verdict" id="prVerdict"></p>
+
+      <div class="pr-kpis">
+        <div><span>Costo mensual</span><b id="prCostMonth">₡0</b></div>
+        <div><span>Costo anual</span><b id="prCostYear">₡0</b></div>
+        <div><span>Distancia anual</span><b id="prKmYear">0</b></div>
+        <div><span>Tiempo anual de traslado</span><b id="prHoursYear">0</b></div>
+      </div>
+
+      <section class="pr-sec">
+        <h2>Resumen ejecutivo</h2>
+        <p id="prExecutive"></p>
+        <p>El objetivo es valorar si la presencialidad tiene necesidad funcional demostrable y cuánto cuesta producirla en términos de movilidad, presupuesto directo y exposición de tiempo.</p>
+      </section>
+
+      <section class="pr-sec pr-two">
+        <div><h2>Necesidad funcional</h2><div id="prFunc"></div></div>
+        <div><h2>Contexto institucional</h2><div id="prInst"></div></div>
+      </section>
+
+      <section class="pr-sec">
+        <h2>Parámetros del caso</h2>
+        <div class="pr-params" id="prInputs"></div>
+      </section>
+    </article>
+
+    <article class="pr-page">
+      <section class="pr-sec">
+        <h2>Composición del presupuesto mensual</h2>
+        <div id="prBudgetChart" class="print-bars"></div>
+      </section>
+      <section class="pr-sec">
+        <h2>Exposición anual de movilidad</h2>
+        <div id="prMobilityChart"></div>
+      </section>
+      <section class="pr-sec">
+        <h2>Un día presencial en 24 horas</h2>
+        <div id="prDayChart"></div>
+      </section>
+      <section class="pr-sec">
+        <h2>Seguridad vial y exposición</h2>
+        <p id="prRoadText"></p>
+      </section>
+      <section class="pr-sec">
+        <h2>Lectura integral</h2>
+        <p id="prAnalysis"></p>
+      </section>
+    </article>
+
+    <article class="pr-page">
+      <section class="pr-sec">
+        <h2>Detalle presupuestario</h2>
+        <table class="pr-table pr-money">
+          <thead><tr><th>Concepto</th><th>Mensual</th><th>Anual</th></tr></thead>
+          <tbody id="prDetailTable"></tbody>
+        </table>
+      </section>
+      <section class="pr-sec">
+        <h2>Rubros evaluados</h2>
+        <table class="pr-table pr-money">
+          <thead><tr><th>Rubro</th><th>¿Aplica?</th><th>Mensual</th></tr></thead>
+          <tbody id="prItems"></tbody>
+        </table>
+      </section>
+      <section class="pr-sec">
+        <h2>Metodología y referencias</h2>
+        <p><strong>Metodología.</strong> El cálculo se realiza localmente en el navegador con la información ingresada por la persona usuaria. Los rubros marcados como «no aplica» no se suman.</p>
+        <p><strong>Combustibles de referencia.</strong> Regular ₡704/L, Súper ₡723/L y Diésel ₡686/L al 23 de septiembre de 2026.</p>
+        <p><strong>Seguridad vial.</strong> La OMS reporta alrededor de 1,16 millones de muertes al año por siniestros de tránsito y entre 20 y 50 millones de lesiones no fatales. La fatiga es reconocida por la literatura especializada como un factor relevante en la siniestralidad vial.</p>
+        <p><strong>Privacidad.</strong> Esta versión no almacena ni transmite respuestas.</p>
+      </section>
+    </article>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+let currentStep = 0;
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const functionalQuestions = [
+  ["clients","¿Tu trabajo requiere atender físicamente a clientes, usuarios, proveedores o público?"],
+  ["equipment","¿Necesitas manipular equipos, infraestructura, laboratorios o activos que solo existen en la oficina?"],
+  ["paper","¿Necesitas documentos, expedientes o archivos que solo pueden utilizarse físicamente en la oficina?"],
+  ["onsite","¿Ejecutas procesos que no pueden completarse remotamente y requieren estar físicamente en el lugar?"],
+  ["security","¿Existen restricciones técnicas, regulatorias o de seguridad que impidan realizar tus funciones remotamente?"],
+  ["meetings","¿Una parte relevante de tus reuniones o coordinación necesita interacción física para lograr su objetivo?"],
+  ["same","¿En la oficina utilizas exactamente la misma computadora, aplicaciones, sistemas y recursos digitales que también utilizas cuando trabajas desde casa?"]
+];
+
+const policyQuestions = [
+  ["policyGeneral","¿Existe una política o lineamiento general que establezca una frecuencia presencial?"],
+  ["uniform","¿Se aplica la frecuencia al área sin una matriz visible de actividades o puestos?"],
+  ["metrics","¿Se comunicaron objetivos medibles para justificar el aumento de presencialidad?"]
+];
+
+function questionRow(id, q, opts){
+  return `<div class="q">
+    <p class="qt" id="qt_${id}">${q}</p>
+    <div class="opts" role="radiogroup" aria-labelledby="qt_${id}">${
+      opts.map((o,i)=>`<input type="radio" name="${id}" id="${id}${i}" value="${o[0]}"><label for="${id}${i}">${o[1]}</label>`).join("")
+    }</div>
+  </div>`;
+}
+
+function buildQuestions(){
+  document.getElementById("functionalQuestions").innerHTML = functionalQuestions.map(([id,q])=>{
+    const opts = id==="same"
+      ? [["2","No, son distintos"],["1","A veces"],["0","Sí, siempre"]]
+      : [["0","Nunca"],["1","A veces"],["2","Frecuente"]];
+    return questionRow(id,q,opts);
+  }).join("");
+
+  document.getElementById("policyQuestions").innerHTML = policyQuestions.map(([id,q],idx)=>{
+    const opts = idx===2
+      ? [["2","No"],["1","Parcialmente"],["0","Sí"]]
+      : [["0","No"],["1","Parcialmente"],["2","Sí"]];
+    return questionRow(id,q,opts);
+  }).join("");
+}
+buildQuestions();
+
+/* Asocia cada label con su control y pasa la unidad "(km)", "(₡)"… a un adorno dentro del campo */
+function enhanceFields(){
+  document.querySelectorAll(".field").forEach(f=>{
+    const lab = f.querySelector("label");
+    const ctl = f.querySelector("input,select");
+    if(!lab || !ctl) return;
+    lab.htmlFor = ctl.id;
+    if(ctl.tagName !== "INPUT") return;
+    const m = lab.textContent.match(/\s*\(([^)]+)\)\s*$/);
+    if(!m) return;
+    const unit = m[1];
+    lab.textContent = lab.textContent.replace(m[0], "");
+    const wrap = document.createElement("span");
+    wrap.className = "inwrap" + (unit==="₡" ? " pre" : "");
+    ctl.parentNode.insertBefore(wrap, ctl);
+    wrap.appendChild(ctl);
+    const u = document.createElement("span");
+    u.className = "unit"; u.textContent = unit;
+    wrap.appendChild(u);
+    if(unit!=="₡") wrap.style.setProperty("--pad", (unit.length*0.55 + 1.4) + "em");
+  });
+}
+enhanceFields();
+
+function v(id){ return Number(document.getElementById(id)?.value) || 0; }
+function money(n){ return "₡" + Math.round(n||0).toLocaleString("es-CR"); }
+function num(n,d=0){ return (n||0).toLocaleString("es-CR",{minimumFractionDigits:d,maximumFractionDigits:d}); }
+/* Rubros opcionales: solo suman si se marcó "Sí aplica" */
+const PERSONAL_ITEMS = ["food","snacks","clothing","laundry","care","other"];
+const VEHICLE_ITEMS = ["park","toll"];
+function applies(k){ return document.querySelector(`input[name="bud_${k}"]:checked`)?.value === "yes"; }
+function answeredItem(k){ return !!document.querySelector(`input[name="bud_${k}"]:checked`); }
+function amt(k,id){ return applies(k) ? v(id) : 0; }
+function updateBudgetUI(){
+  [...PERSONAL_ITEMS,...VEHICLE_ITEMS].forEach(k=>document.getElementById("bf_"+k).classList.toggle("hidden", !applies(k)));
+}
+function checked(name){ const el=document.querySelector(`input[name="${name}"]:checked`); return el?Number(el.value):null; }
+
+/* Transición numérica corta cuando cambia un valor */
+function tween(el, to, fmt){
+  if(!el) return;
+  const from = el._v ?? 0;
+  el._v = to;
+  if(reduceMotion || from===to){ el.textContent = fmt(to); return; }
+  cancelAnimationFrame(el._raf);
+  const t0 = performance.now(), dur = 420;
+  const frame = t=>{
+    const k = Math.min((t-t0)/dur, 1), e = 1 - Math.pow(1-k, 3);
+    el.textContent = fmt(from + (to-from)*e);
+    if(k<1) el._raf = requestAnimationFrame(frame);
+  };
+  el._raf = requestAnimationFrame(frame);
+}
+
+function functionalEval(){
+  let answered=0, score=0;
+  functionalQuestions.forEach(([id])=>{
+    const x=checked(id);
+    if(x!==null){ answered++; score+=x; }
+  });
+  const complete = answered===functionalQuestions.length;
+  const pct = complete ? (score/(functionalQuestions.length*2))*100 : 0;
+  let label="Pendiente", text="Completa las preguntas de este bloque.";
+  if(complete){
+    if(pct<30){
+      label=`Baja · ${num(pct,0)}%`;
+      text="Existe alta equivalencia remota y poca dependencia de recursos físicos. La actividad parece poder ejecutarse de forma muy similar desde casa y oficina.";
+    }else if(pct<60){
+      label=`Moderada · ${num(pct,0)}%`;
+      text="Existen tareas que pueden beneficiarse de presencia física, pero también componentes con equivalencia remota relevante.";
+    }else{
+      label=`Alta · ${num(pct,0)}%`;
+      text="Varias funciones dependen de interacción, equipos, documentación o procesos físicos, por lo que la presencialidad luce funcionalmente más clara.";
+    }
+  }
+  return {answered, complete, pct, label, text};
+}
+
+function institutionalEval(){
+  let answered=0, values=[];
+  policyQuestions.forEach(([id])=>{
+    const x=checked(id);
+    if(x!==null){ answered++; values.push(x); }
+  });
+  const complete = answered===policyQuestions.length;
+  const sum = values.reduce((a,b)=>a+b,0);
+  let label="Pendiente", text="Completa las preguntas de este bloque.";
+  if(complete){
+    if(sum>=4){
+      label="Modelo general con criterios operativos poco visibles";
+      text="La presencialidad parece responder principalmente a un esquema general y menos a una matriz transparente de actividades o puestos.";
+    }else if(sum>=2){
+      label="Modelo institucional mixto";
+      text="El esquema mezcla lineamientos generales con algunos criterios funcionales visibles.";
+    }else{
+      label="Modelo más diferenciado";
+      text="La información sugiere un mayor ajuste entre el esquema y las necesidades funcionales de la actividad.";
+    }
+  }
+  return {answered, complete, sum, label, text};
+}
+
+function updateTransportUI(){
+  const mode = document.getElementById("transportMode").value;
+  const vehicle = ["ownCar","carpoolDriver","motorcycle"].includes(mode);
+  document.getElementById("vehicleSection").classList.toggle("hidden", !vehicle);
+  document.getElementById("carpoolDriverSection").classList.toggle("hidden", mode!=="carpoolDriver");
+  document.getElementById("passengerSection").classList.toggle("hidden", mode!=="carpoolPassenger");
+  document.getElementById("publicSection").classList.toggle("hidden", !["bus","train"].includes(mode));
+  document.getElementById("taxiSection").classList.toggle("hidden", mode!=="taxi");
+  document.getElementById("activeSection").classList.toggle("hidden", !["bicycle","walk"].includes(mode));
+  document.getElementById("mixedSection").classList.toggle("hidden", !["mixed","employer"].includes(mode));
+}
+
+function updateEnergyUI(){
+  const t = document.getElementById("energyType").value;
+  const electric = t==="electric" || t==="phev";
+  document.getElementById("liquidEffField").classList.toggle("hidden", electric);
+  document.getElementById("fuelPriceField").classList.toggle("hidden", electric);
+  document.getElementById("electricEffField").classList.toggle("hidden", !electric);
+  document.getElementById("electricPriceField").classList.toggle("hidden", !electric);
+
+  if(t==="regular") document.getElementById("fuelPrice").value = 704;
+  if(t==="super" || t==="hybrid") document.getElementById("fuelPrice").value = 723;
+  if(t==="diesel") document.getElementById("fuelPrice").value = 686;
+  if((t==="electric" || t==="phev") && !v("kwhPrice")) document.getElementById("kwhPrice").value = 99.70;
+}
+
+function compute(){
+  updateTransportUI();
+  updateEnergyUI();
+  updateBudgetUI();
+
+  const mode = document.getElementById("transportMode").value;
+  const daysWeek = v("daysWeek"), weeksYear = v("weeksYear") || 52;
+  const daysYear = daysWeek * weeksYear;
+  const daysMonth = daysYear / 12;
+
+  const kmDay = v("kmGo") + v("kmBack");
+  const kmYear = kmDay * daysYear;
+  const kmMonth = kmYear / 12;
+
+  const hoursDay = v("hoursGo") + v("hoursBack");
+  const hoursYear = hoursDay * daysYear;
+  const hoursMonth = hoursYear / 12;
+
+  let fuelMonth=0, parkingMonth=0, tollsMonth=0, maintMonth=0, tiresMonth=0, transportMonth=0;
+
+  if(["ownCar","carpoolDriver","motorcycle"].includes(mode)){
+    const energy = document.getElementById("energyType").value;
+    if(energy==="electric" || energy==="phev"){
+      fuelMonth = (kmMonth/100) * v("kwh100") * v("kwhPrice");
+    }else{
+      fuelMonth = v("kmPerLiter")>0 ? (kmMonth/v("kmPerLiter")) * v("fuelPrice") : 0;
+    }
+    parkingMonth = amt("park","parkingDay") * daysMonth;
+    tollsMonth = amt("toll","tollsDay") * daysMonth;
+    maintMonth = v("maintKm")>0 ? (kmMonth/v("maintKm")) * v("maintCost") : 0;
+    tiresMonth = v("tiresKm")>0 ? (kmMonth/v("tiresKm")) * v("tiresCost") : 0;
+    transportMonth = fuelMonth + parkingMonth + tollsMonth + maintMonth + tiresMonth;
+
+    if(mode==="carpoolDriver" && document.getElementById("splitCosts").value==="yes"){
+      const people = Math.max(v("carpoolPeople"),1);
+      fuelMonth/=people; parkingMonth/=people; tollsMonth/=people; maintMonth/=people; tiresMonth/=people; transportMonth/=people;
+    }
+  }else if(mode==="carpoolPassenger"){
+    transportMonth = v("passengerDaily") * daysMonth;
+  }else if(mode==="bus" || mode==="train"){
+    transportMonth = (v("fareGo")+v("fareBack")+v("connectionsDay")) * daysMonth;
+  }else if(mode==="taxi"){
+    transportMonth = v("taxiDay") * daysMonth;
+  }else if(mode==="bicycle" || mode==="walk"){
+    transportMonth = v("activeMonth") + (v("activeInitial")/12);
+  }else if(mode==="mixed" || mode==="employer"){
+    transportMonth = v("mixedDay") * daysMonth;
+  }
+
+  const foodMonth = amt("food","foodDay") * daysMonth;
+  const snacksMonth = amt("snacks","snacksDay") * daysMonth;
+  const otherMonth = amt("other","otherDay") * daysMonth;
+  const clothingMonth = applies("clothing") ? v("clothingInitial") / Math.max(v("clothingMonths"),1) : 0;
+  const laundryMonth = amt("laundry","laundryMonth");
+  const careMonth = amt("care","careMonth");
+  const totalMonth = transportMonth + foodMonth + snacksMonth + otherMonth + clothingMonth + laundryMonth + careMonth;
+
+  return {
+    mode, daysMonth, daysYear, kmDay, kmMonth, kmYear, hoursDay, hoursMonth, hoursYear,
+    fuelMonth, parkingMonth, tollsMonth, maintMonth, tiresMonth, transportMonth,
+    foodMonth, snacksMonth, otherMonth, clothingMonth, laundryMonth, careMonth,
+    totalMonth, totalYear: totalMonth*12
+  };
+}
+
+function wizardProgress(){
+  const f = functionalEval(), i = institutionalEval(), c = compute();
+  const mode = document.getElementById("transportMode").value;
+  const step1 = f.complete;
+  const step2 = i.complete;
+  const step3 = !!mode && v("daysWeek")>0 && (v("kmGo")+v("kmBack")>0) && (v("hoursGo")+v("hoursBack")>0);
+  const step4 = PERSONAL_ITEMS.every(answeredItem);
+  const step5 = step1 && step2 && step3;
+  const blocks=[step1,step2,step3,step4,step5];
+  const pct=Math.round((blocks.filter(Boolean).length/5)*100);
+
+  document.getElementById("progressValue").textContent = pct + "%";
+  document.getElementById("progressFill").style.width = pct + "%";
+  blocks.forEach((done,idx)=>document.getElementById("nav"+idx).classList.toggle("done", done));
+}
+
+/* Barras horizontales; solo se redibujan si cambian los datos */
+function renderBars(targetId, items){
+  const el = document.getElementById(targetId);
+  const filtered = items.filter(x=>x[1]>0);
+  const sig = JSON.stringify(filtered.map(x=>[x[0],Math.round(x[1])]));
+  if(el._sig === sig) return;
+  el._sig = sig;
+  if(!filtered.length){
+    el.innerHTML = '<p class="empty">Completa información suficiente para generar este gráfico.</p>';
+    return;
+  }
+  const max = Math.max(...filtered.map(x=>x[1]),1);
+  el.innerHTML = filtered.map(([label,val,fmt],idx)=>`
+    <div class="bar">
+      <span>${label}</span>
+      <div class="bartrack"><div class="barfill" data-w="${(val/max)*100}" style="transition-delay:${idx*55}ms"></div></div>
+      <strong>${fmt==="money" ? money(val) : num(val,0)}</strong>
+    </div>`).join("");
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    el.querySelectorAll(".barfill").forEach(b=>b.style.width = b.dataset.w + "%");
+  }));
+}
+
+/* Km y horas tienen unidades distintas: se muestran como cifras con una equivalencia cada una */
+function renderMobility(targetId, c){
+  const el = document.getElementById(targetId);
+  if(c.kmYear<=0 && c.hoursYear<=0){
+    el.innerHTML = '<p class="empty">Completa distancia, tiempo y días presenciales para ver esta sección.</p>';
+    return;
+  }
+  const earth = 40075;
+  const laps = c.kmYear/earth;
+  const kmNote = laps>=1
+    ? `${num(laps,1)} vueltas a la Tierra por el ecuador (40.075 km)`
+    : `${num(laps*100,0)}% de una vuelta a la Tierra por el ecuador (40.075 km)`;
+  el.innerHTML = `<div class="figs">
+    <div class="fig"><b>${num(c.kmYear,0)} km</b><span>${kmNote}</span></div>
+    <div class="fig"><b>${num(c.hoursYear,0)} h</b><span>equivalen a ${num(c.hoursYear/7.5,0)} jornadas laborales de 7,5 h</span></div>
+  </div>`;
+}
+
+/* Día de 24 h: ida, jornada, regreso y resto */
+function renderDay(targetId, animate=true){
+  const el = document.getElementById(targetId);
+  const go = v("hoursGo"), back = v("hoursBack"), work = 7.5;
+  const rest = Math.max(24 - go - back - work, 0);
+  const total = Math.max(go + back + work + rest, 24);
+  if(go + back <= 0){
+    el.innerHTML = '<p class="empty">Indica el tiempo de ida y de regreso para ver el día completo.</p>';
+    el._sig = null;
+    return;
+  }
+  const sig = [go,back,animate].join("|");
+  if(animate && el._sig === sig) return;
+  el._sig = sig;
+  const segs = [["s-go",go],["s-work",work],["s-back",back],["s-rest",rest]];
+  const pct = h => (h/total)*100;
+  el.innerHTML = `
+    <div class="day">${segs.map(([cls,h])=>`<i class="${cls}" data-w="${pct(h)}" ${animate?"":`style="width:${pct(h)}%"`}></i>`).join("")}</div>
+    <div class="ticks">${[0,6,12,18,24].map(h=>`<span style="left:${(h/24)*100}%">${h} h</span>`).join("")}</div>
+    <div class="legend">
+      <span><i style="background:var(--signal)"></i>Traslado: ${num(go+back,1)} h</span>
+      <span><i style="background:var(--sign)"></i>Jornada: 7,5 h</span>
+      <span><i style="background:var(--rule)"></i>Resto del día, sueño incluido: ${num(rest,1)} h</span>
+    </div>`;
+  if(animate){
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      el.querySelectorAll(".day i").forEach(s=>s.style.width = s.dataset.w + "%");
+    }));
+  }
+}
+
+function renderAll(){
+  const f = functionalEval();
+  const i = institutionalEval();
+  const c = compute();
+  wizardProgress();
+
+  document.getElementById("count0").textContent = `${f.answered} de ${functionalQuestions.length} respondidas`;
+  document.getElementById("count3").textContent = `${PERSONAL_ITEMS.filter(answeredItem).length} de ${PERSONAL_ITEMS.length} definidos`;
+  document.getElementById("count1").textContent = `${i.answered} de ${policyQuestions.length} respondidas`;
+
+  document.getElementById("funcBadge").textContent = f.label;
+  document.getElementById("funcText").textContent = f.text;
+  document.getElementById("instBadge").textContent = i.label;
+  document.getElementById("instText").textContent = i.text;
+
+  const needle = document.getElementById("funcNeedle");
+  needle.classList.toggle("on", f.complete);
+  needle.style.left = (f.complete ? f.pct : 0) + "%";
+
+  const level = !i.complete ? -1 : i.sum>=4 ? 2 : i.sum>=2 ? 1 : 0;
+  document.querySelectorAll("#instLevels span").forEach((s,idx)=>s.classList.toggle("on", idx===level));
+
+  // Medidor lateral
+  tween(document.getElementById("mMonth"), c.totalMonth, money);
+  tween(document.getElementById("mYear"), c.totalYear, money);
+  tween(document.getElementById("mKm"), c.kmYear, n=>num(n,0));
+  tween(document.getElementById("mHours"), c.hoursYear, n=>num(n,0)+" h");
+
+  // Resultados
+  tween(document.getElementById("kpiCostMonth"), c.totalMonth, money);
+  tween(document.getElementById("kpiCostYear"), c.totalYear, money);
+  tween(document.getElementById("kpiKmYear"), c.kmYear, n=>num(n,0)+" km");
+  tween(document.getElementById("kpiHoursYear"), c.hoursYear, n=>num(n,0)+" h");
+  document.getElementById("kpiDays24").textContent = num(c.hoursYear/24,1) + " días de 24 h";
+
+  renderBars("budgetChart", [
+    ["Transporte",c.transportMonth,"money"],
+    ["Alimentación",c.foodMonth,"money"],
+    ["Refrigerios",c.snacksMonth,"money"],
+    ["Vestimenta",c.clothingMonth,"money"],
+    ["Lavandería",c.laundryMonth,"money"],
+    ["Cuido/logística",c.careMonth,"money"],
+    ["Otros",c.otherMonth,"money"]
+  ].sort((a,b)=>b[1]-a[1]));
+
+  renderMobility("mobilityChart", c);
+  renderDay("dayChart");
+
+  const driving = ["ownCar","carpoolDriver","motorcycle"].includes(c.mode);
+  let road = `La OMS estima aproximadamente <strong>1,16 millones de muertes al año</strong> por siniestros viales y entre <strong>20 y 50 millones de lesiones no fatales</strong>. `;
+  if(driving){
+    road += `En este caso, la presencialidad generaría alrededor de <strong>${num(c.kmYear,0)} km</strong> y <strong>${num(c.hoursYear,0)} horas de desplazamiento al año</strong>. La conducción prolongada incrementa la exposición y puede favorecer la fatiga.`;
+  }else{
+    road += `En este caso, la exposición anual estimada es de <strong>${num(c.kmYear,0)} km</strong> y <strong>${num(c.hoursYear,0)} horas</strong>, con un patrón de riesgo distinto según se trate de transporte público, caminata, bicicleta o modalidad mixta.`;
+  }
+  document.getElementById("roadText").innerHTML = road;
+
+  let analysis = `La necesidad funcional se clasifica como <strong>${f.complete ? f.label : "pendiente"}</strong> y el contexto institucional como <strong>${i.complete ? i.label : "pendiente"}</strong>. `;
+  analysis += `El esquema configurado requiere aproximadamente <strong>${num(c.kmYear,0)} km</strong> y <strong>${num(c.hoursYear,0)} horas de traslado al año</strong>, con un presupuesto estimado de <strong>${money(c.totalMonth)} mensuales</strong> y <strong>${money(c.totalYear)} anuales</strong>. `;
+  if(f.complete){
+    if(f.pct<30){
+      analysis += `El resultado muestra alta equivalencia casa/oficina. En este escenario, la pregunta central no es solo cuántos días asistir, sino qué actividad concreta mejora o requiere presencialidad y si ese valor adicional es proporcional al costo y al tiempo generado.`;
+    }else if(f.pct<60){
+      analysis += `El caso sugiere una lógica intermedia: existen actividades que podrían justificar encuentros selectivos, pero también trabajo que conserva alta equivalencia remota.`;
+    }else{
+      analysis += `Aquí existe una justificación funcional más clara para la presencialidad, aunque el costo y la exposición de movilidad siguen siendo relevantes para valorar la proporcionalidad del esquema.`;
+    }
+  }
+  document.getElementById("analysisText").innerHTML = analysis;
+
+  const rows = [
+    ["Transporte total", c.transportMonth, c.transportMonth*12],
+    ["Combustible / energía", c.fuelMonth, c.fuelMonth*12],
+    ["Parqueo", c.parkingMonth, c.parkingMonth*12],
+    ["Peajes", c.tollsMonth, c.tollsMonth*12],
+    ["Mantenimiento", c.maintMonth, c.maintMonth*12],
+    ["Llantas", c.tiresMonth, c.tiresMonth*12],
+    ["Alimentación", c.foodMonth, c.foodMonth*12],
+    ["Café / refrigerios", c.snacksMonth, c.snacksMonth*12],
+    ["Vestimenta prorrateada", c.clothingMonth, c.clothingMonth*12],
+    ["Lavandería / planchado", c.laundryMonth, c.laundryMonth*12],
+    ["Cuido / logística", c.careMonth, c.careMonth*12],
+    ["Otros", c.otherMonth, c.otherMonth*12],
+    ["Total", c.totalMonth, c.totalYear]
+  ];
+  const shown = rows.filter((r,idx)=> idx===0 || idx===rows.length-1 || r[1]>0);
+  document.getElementById("detailTable").innerHTML = shown.map((r,idx)=>`
+    <tr${idx===shown.length-1 ? ' class="total"' : ''}>
+      <td>${r[0]}</td><td>${money(r[1])}</td><td>${money(r[2])}</td>
+    </tr>`).join("");
+}
+
+function goStep(n){
+  const prev = currentStep;
+  currentStep = Math.max(0, Math.min(4, n));
+  for(let i=0;i<5;i++){
+    const panel = document.getElementById("step"+i);
+    const nav = document.getElementById("nav"+i);
+    panel.classList.toggle("hidden", i!==currentStep);
+    nav.classList.toggle("active", i===currentStep);
+    if(i===currentStep) nav.setAttribute("aria-current","step"); else nav.removeAttribute("aria-current");
+  }
+  const panel = document.getElementById("step"+currentStep);
+  panel.classList.remove("in-fwd","in-back");
+  if(prev !== currentStep){
+    void panel.offsetWidth;
+    panel.classList.add(currentStep > prev ? "in-fwd" : "in-back");
+  }
+  document.getElementById("route").style.setProperty("--at", currentStep);
+  if(currentStep===4){
+    // Fuerza la animación de barras al entrar a resultados
+    ["budgetChart","dayChart"].forEach(id=>document.getElementById(id)._sig = null);
+  }
+  renderAll();
+  window.scrollTo({top:0, behavior: reduceMotion ? "auto" : "smooth"});
+}
+function nextStep(){ goStep(currentStep+1); }
+function prevStep(){ goStep(currentStep-1); }
+function goToResults(){ goStep(4); }
+
+function verdictHTML(c){
+  return `Con este esquema, ir a la oficina cuesta <b>${money(c.totalMonth)}</b> al mes
+    <span class="soft">(${money(c.totalYear)} al año)</span>, suma <b>${num(c.kmYear,0)} km</b> recorridos
+    y consume <b>${num(c.hoursYear,0)} h</b> de traslado, <span class="soft">lo mismo que ${num(c.hoursYear/24,1)} días de 24 h.</span>`;
+}
+
+function fillPrint(){
+  renderAll();
+  const f = functionalEval();
+  const i = institutionalEval();
+  const c = compute();
+  const modeText = document.getElementById("transportMode").value
+    ? document.getElementById("transportMode").selectedOptions[0].text : "No definido";
+  const today = new Date().toLocaleDateString("es-CR",{day:"numeric",month:"long",year:"numeric"});
+
+  document.getElementById("prMeta").innerHTML = `
+    <dt>Fecha</dt><dd>${today}</dd>
+    <dt>Traslado</dt><dd>${modeText}</dd>
+    <dt>Días presenciales</dt><dd>${num(v("daysWeek"),0)} por semana</dd>`;
+  document.getElementById("prVerdict").innerHTML = verdictHTML(c);
+
+  document.getElementById("prCostMonth").textContent = money(c.totalMonth);
+  document.getElementById("prCostYear").textContent = money(c.totalYear);
+  document.getElementById("prKmYear").textContent = num(c.kmYear,0) + " km";
+  document.getElementById("prHoursYear").textContent = num(c.hoursYear,0) + " h";
+
+  document.getElementById("prExecutive").innerHTML =
+    `El caso evaluado presenta una necesidad funcional <strong>${f.complete ? f.label : "pendiente"}</strong> y un contexto institucional <strong>${i.complete ? i.label : "pendiente"}</strong>. ` +
+    `El costo directo estimado es de <strong>${money(c.totalMonth)} mensuales</strong> y la exposición de movilidad asciende a <strong>${num(c.kmYear,0)} km</strong> y <strong>${num(c.hoursYear,0)} horas</strong> al año.`;
+
+  document.getElementById("prFunc").innerHTML = `
+    <p class="pr-label">${f.label}</p>
+    <div class="gauge">
+      <div class="zones"><span></span><span></span><span></span></div>
+      <div class="needle ${f.complete ? "on" : ""}" style="left:${f.complete ? f.pct : 0}%"></div>
+      <div class="zone-names"><span>Baja</span><span>Moderada</span><span>Alta</span></div>
+    </div>
+    <p>${f.text}</p>`;
+  const level = !i.complete ? -1 : i.sum>=4 ? 2 : i.sum>=2 ? 1 : 0;
+  document.getElementById("prInst").innerHTML = `
+    <p class="pr-label">${i.label}</p>
+    <div class="levels">${["Diferenciado","Mixto","General"].map((t,idx)=>`<span class="${idx===level?"on":""}">${t}</span>`).join("")}</div>
+    <p>${i.text}</p>`;
+
+  const vehicle = ["ownCar","carpoolDriver","motorcycle"].includes(c.mode);
+  const inputs = [
+    ["Modo principal de traslado", modeText],
+    ["Distancia de ida / regreso", `${num(v("kmGo"),1)} km / ${num(v("kmBack"),1)} km`],
+    ["Tiempo de ida / regreso", `${num(v("hoursGo"),1)} h / ${num(v("hoursBack"),1)} h`],
+    ["Días presenciales por semana", num(v("daysWeek"),0)],
+    ["Semanas laborales por año", num(v("weeksYear"),0)]
+  ];
+  if(vehicle) inputs.push(["Tipo de energía", document.getElementById("energyType").value ? document.getElementById("energyType").selectedOptions[0].text : "No definido"]);
+  inputs.push(["Costo mensual estimado", money(c.totalMonth)], ["Costo anual estimado", money(c.totalYear)]);
+  document.getElementById("prInputs").innerHTML = inputs.map(r=>`<div><span>${r[0]}</span><b>${r[1]}</b></div>`).join("");
+
+  const budgetItems = [
+    ["Transporte",c.transportMonth,"money"],
+    ["Alimentación",c.foodMonth,"money"],
+    ["Refrigerios",c.snacksMonth,"money"],
+    ["Vestimenta",c.clothingMonth,"money"],
+    ["Lavandería",c.laundryMonth,"money"],
+    ["Cuido/logística",c.careMonth,"money"],
+    ["Otros",c.otherMonth,"money"]
+  ].filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);
+  const max = Math.max(...budgetItems.map(x=>x[1]),1);
+  document.getElementById("prBudgetChart").innerHTML = budgetItems.length
+    ? budgetItems.map(([label,val])=>`
+        <div class="bar">
+          <span>${label}</span>
+          <div class="bartrack"><div class="barfill" style="width:${(val/max)*100}%"></div></div>
+          <strong>${money(val)}</strong>
+        </div>`).join("")
+    : '<p class="empty">Sin información suficiente para este gráfico.</p>';
+  renderMobility("prMobilityChart", c);
+  renderDay("prDayChart", false);
+
+  document.getElementById("prRoadText").innerHTML = document.getElementById("roadText").innerHTML;
+  document.getElementById("prAnalysis").innerHTML = document.getElementById("analysisText").innerHTML;
+  document.getElementById("prDetailTable").innerHTML = document.getElementById("detailTable").innerHTML;
+
+  const items = [
+    ["Alimentación fuera de casa","food",c.foodMonth],
+    ["Café y refrigerios","snacks",c.snacksMonth],
+    ["Vestimenta adicional","clothing",c.clothingMonth],
+    ["Lavandería y planchado","laundry",c.laundryMonth],
+    ["Cuido o logística familiar","care",c.careMonth],
+    ["Otros gastos","other",c.otherMonth]
+  ];
+  if(vehicle) items.unshift(["Parqueo","park",c.parkingMonth],["Peajes","toll",c.tollsMonth]);
+  document.getElementById("prItems").innerHTML = items.map(([name,k,val])=>{
+    const state = !answeredItem(k) ? "Sin definir" : applies(k) ? "Sí" : "No";
+    const cls = applies(k) ? "" : ' class="na"';
+    return `<tr><td>${name}</td><td${cls}>${state}</td><td${cls}>${applies(k) ? money(val) : "—"}</td></tr>`;
+  }).join("");
+}
+
+function preparePrint(){
+  fillPrint();
+  window.print();
+}
+window.addEventListener("beforeprint", fillPrint);
+
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(t._h);
+  t._h = setTimeout(()=>t.classList.remove("show"), 2200);
+}
+
+async function copySummary(){
+  renderAll();
+  const f = functionalEval();
+  const i = institutionalEval();
+  const c = compute();
+  const summary = `ESTUDIO DE PRESENCIALIDAD
+
+Necesidad funcional: ${f.label}
+Contexto institucional: ${i.label}
+Modo de transporte: ${document.getElementById("transportMode").selectedOptions[0]?.text || "No definido"}
+Costo mensual estimado: ${money(c.totalMonth)}
+Costo anual estimado: ${money(c.totalYear)}
+Kilómetros anuales: ${num(c.kmYear,0)} km
+Horas anuales de traslado: ${num(c.hoursYear,0)} h`;
+  try{
+    await navigator.clipboard.writeText(summary);
+    showToast("Resumen copiado al portapapeles");
+  }catch(e){
+    showToast("No se pudo copiar. Revisa los permisos del navegador.");
+  }
+}
+
+function resetAll(){ location.reload(); }
+
+document.addEventListener("change", e=>{
+  const n = e.target.name || "";
+  if(n.startsWith("bud_") && e.target.value==="yes"){
+    updateBudgetUI();
+    document.querySelector("#bf_" + n.slice(4) + " input")?.focus({preventScroll:true});
+  }
+});
+document.addEventListener("input", renderAll);
+document.addEventListener("change", renderAll);
+goStep(0);
+renderAll();
+</script>
+</body>
+</html>
